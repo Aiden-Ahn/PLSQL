@@ -1,0 +1,21 @@
+create or replace package regression
+
+is 
+
+procedure create_xy
+
+( p_table  in  varchar2,
+
+  p_ycol   in  varchar2,
+
+  p_xcol   in  varchar2 ) ;
+
+procedure create_xt;
+
+procedure create_xx;
+
+procedure analysis;
+
+end regression;
+
+/

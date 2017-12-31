@@ -1,0 +1,207 @@
+create or replace package entropy
+
+is
+
+	procedure info_amount
+
+	(t_table  in varchar2,
+
+	t_column in varchar2);
+
+	function get_entropy
+
+	( P_PROB IN NUMBER ) RETURN NUMBER ;
+
+
+
+end entropy;
+
+/
+
+
+
+=============================
+
+
+
+
+
+
+
+create or replace package body entropy
+
+is
+
+procedure info_amount
+
+	(t_table in varchar2,
+
+	 t_column  in varchar2)
+
+is
+
+   v_stmt varchar2(2000);
+
+
+
+   num1 number(10,3);
+
+   num2 number(10,3);
+
+   num3 number(10,3);
+
+   num4 number(10,3);
+
+   tot number(10,3);
+
+   bef number(10,3);
+
+   yes number(10,3);
+
+   noo number(10,3);
+
+   aft number(10,3);
+
+   ans number(10,3);
+
+      
+
+   type refcursor is ref cursor;
+
+   emp_cv refcursor;
+
+   
+
+   cursor emp_cursor is
+
+      select column_name, table_name
+
+      from user_tab_columns
+
+      where table_name= upper(t_table) and column_name not in ('CUST_NAME', upper(t_column));
+
+   
+
+begin
+
+	dbms_output.put_line('	' ||t_column || '에 대한 정보 획득량');
+
+	dbms_output.put_line('=========================================');
+
+
+
+   for emp_record in emp_cursor loop
+
+    
+
+   v_stmt := 'select 
+
+            distinct(select count('||emp_record.column_name||')
+
+               from '||emp_record.table_name||'
+
+               where '||emp_record.column_name||' = ''Y'' and '||t_column||' = ''Y'') num1,   
+
+            (select count('||emp_record.column_name||')
+
+               from '||emp_record.table_name||'
+
+               where '||emp_record.column_name||' = ''Y'' and '||t_column||' = ''N'') num2,    
+
+            (select count('||emp_record.column_name||')
+
+               from '||emp_record.table_name||'
+
+               where '||emp_record.column_name||' = ''N'' and '||t_column||' = ''N'') num3,    
+
+            (select count('||emp_record.column_name||')
+
+               from '||emp_record.table_name||'
+
+               where '||emp_record.column_name||' = ''N'' and '||t_column||' = ''Y'') num4 
+
+            from '||emp_record.table_name;
+
+         
+
+   open emp_cv for v_stmt;
+
+   
+
+   fetch emp_cv into num1, num2, num3, num4;
+
+         
+
+   tot := num1+num2+num3+num4;
+
+      
+
+   bef := get_entropy((num1+num4)/tot);
+
+		  
+
+   yes := get_entropy(num1/(num1+num2));
+
+		
+
+   noo := get_entropy(num3/(num3+num4));
+
+		
+
+		
+
+   aft := (num1+num2)/tot * yes + (num3+num4)/tot * noo;
+
+   ans := bef - aft;
+
+   
+
+   dbms_output.put_line(emp_record.column_name || '의 정보획득량 : ' ||ans);
+
+   
+
+   end loop;
+
+   
+
+   dbms_output.put_line('=========================================');
+
+   
+
+end info_amount;
+
+	
+
+	-- log function 
+
+	function get_entropy
+
+	( P_PROB IN NUMBER ) RETURN NUMBER 
+
+	is
+
+	v_result number(10,5);
+
+
+
+	BEGIN
+
+	if p_prob <> 0 and p_prob <> 1 then
+
+	v_result := -1* p_prob * log(2,p_prob) -1*(1-p_prob) * log(2,(1-p_prob));
+
+	else
+
+	v_result := 0;
+
+	end if;
+
+	RETURN v_result;
+
+	
+
+END get_entropy;
+
+end entropy;
+
+/

@@ -1,0 +1,173 @@
+create or replace procedure test_entropy
+
+( p_table   in varchar2,
+
+  p_x       in varchar2,
+
+  p_y       in varchar2 )
+
+as
+
+  v_stmt    varchar2(2000);
+
+  v_col     varchar2(20);
+
+  v_num1    number(10,5);
+
+  v_num2    number(10,5);
+
+  v_num3    number(10,5);
+
+  v_a       number(10,5);
+
+  v_b       number(10,5);
+
+  v_result  number(10,5):=0;
+
+  v_sum     number(10,5);
+
+  type refcursor is ref cursor;
+
+  emp_cv    refcursor;
+
+  v_before  number(10,5);
+
+  v_before_sum  number(10,5):=0;
+
+  type 		array_t is table of varchar2(100);
+
+  v_array array_t:=array_t();
+
+  
+
+  cursor emp_cursor is 
+
+    select column_name
+
+      from cols
+
+      where table_name = upper(p_table);
+
+        
+
+begin
+
+  v_array.extend(regexp_count(p_x,',')+1);
+
+  for j in 1..v_array.count loop
+
+		v_array(j) := trim(regexp_substr(p_x,'[^,]+',1,j));
+
+	end loop;
+
+  
+
+  v_stmt := 'select '||p_y||', count(*) a,
+
+                   (select count(*) from '||p_table||') b
+
+                  from '||p_table||'
+
+                  group by '||p_y;
+
+                  
+
+  open emp_cv for v_stmt;
+
+  
+
+    loop
+
+      fetch emp_cv into v_col, v_a, v_b;
+
+      exit when emp_cv%NOTFOUND;
+
+        v_before := (-v_a/v_b) * log(2,v_a/v_b);
+
+        v_before_sum := v_before_sum + v_before;
+
+    end loop;
+
+  
+
+  close emp_cv;
+
+    
+
+  dbms_output.put_line(rpad('칼럼 명',20)||': '||upper(p_y));
+
+  dbms_output.put_line (rpad('분할 전 엔트로피',20)||': '|| v_before_sum );
+
+  dbms_output.put_line ('==================================');
+
+  
+
+  for emp_record in emp_cursor loop
+
+    for i in 1..v_array.count loop
+
+      if emp_record.column_name = upper(v_array(i)) then
+
+        v_stmt := 'select '||emp_record.column_name||', count(*) cnt, 
+
+                          sum(decode('||p_y||','||'
+
+                                (select distinct '||p_y||'
+
+                                    from '||p_table||'
+
+                                    where rownum =1)'||',1,0)) buy_cnt,
+
+                          (select count(*) from '||p_table||') tot_cnt
+
+                    from '||p_table||'
+
+                    group by '||emp_record.column_name;
+
+                  
+
+        open emp_cv for v_stmt;
+
+           
+
+         loop
+
+            fetch emp_cv into v_col, v_num1, v_num2, v_num3;
+
+              exit when emp_cv%NOTFOUND;
+
+              if v_num1 = 0 or v_num2 = 0 or v_num1 = v_num2 then
+
+                v_sum := 0 ;
+
+              else
+
+                v_sum := (v_num1/v_num3) * ( -(v_num2/v_num1)*log(2,(v_num2/v_num1)) - ((v_num1-v_num2)/v_num1)*log(2,((v_num1-v_num2)/v_num1)) ) ;
+
+              end if;     
+
+              v_result := v_result + v_sum; 
+
+          end loop;
+
+      dbms_output.put_line(rpad('칼럼 명',20)||': '||emp_record.column_name);
+
+      dbms_output.put_line(rpad('분할 후 엔트로피',20)||': '||(v_result));
+
+      dbms_output.put_line(rpad('정보 획득 량',20)||': '||(v_before_sum-v_result));
+
+      dbms_output.put_line ('==================================');
+
+      v_result :=0;
+
+      end if;
+
+    end loop;
+
+  end loop;
+
+end;
+
+/
+
+ 

@@ -1,0 +1,409 @@
+create or replace package body regression
+
+is
+
+procedure create_xy
+
+( p_table  in  varchar2,
+
+  p_ycol   in  varchar2,
+
+  p_xcol   in  varchar2 )
+
+is
+
+ex_table_backup number(10);
+
+ex_table_y number(10);
+
+ex_table_x number(10);
+
+ 
+
+begin
+
+select count(*) into ex_table_backup
+
+from user_tables
+
+where table_name = 'TABLE_BACKUP';
+
+ 
+
+select count(*) into ex_table_y
+
+from user_tables
+
+where table_name = 'TABLE_Y';
+
+ 
+
+select count(*) into ex_table_x
+
+from user_tables
+
+where table_name = 'TABLE_X';
+
+ 
+
+if ex_table_backup = 1 then
+
+execute immediate 'drop table table_backup';
+
+end if;
+
+ 
+
+execute immediate 'create table table_backup as select * from ' || p_table;
+
+ 
+
+if ex_table_y = 1 then
+
+execute immediate 'drop table table_Y';
+
+end if;
+
+ 
+
+execute immediate 'create table table_Y as select ' || p_Ycol || ' from ' || p_table ;
+
+execute immediate 'alter table '|| p_table || ' drop column ' || p_Ycol;
+
+execute immediate 'alter table ' || p_table || ' add ' || p_ycol || ' number(10,5)';
+
+execute immediate 'update '|| p_table || ' set ' || p_Ycol || ' = 1';
+
+ 
+
+if ex_table_x = 1 then
+
+execute immediate 'drop table table_X';
+
+end if;
+
+ 
+
+execute immediate  'create table table_X as select ' || p_Ycol || ', '|| p_Xcol ||' from ' || p_table;
+
+execute immediate 'drop table ' || p_table;
+
+execute immediate  'create table ' || p_table ||' as select * from table_backup';
+
+ 
+
+commit;
+
+ 
+
+end create_xy;
+
+ 
+
+procedure create_xt
+
+is
+
+v_stmt varchar2(1000) := 'create table table_xt as ';
+
+v_col_cnt number(10);
+
+v_cnt number(10) := 0;
+
+ex_table_xt number(10);
+
+ 
+
+begin
+
+select count(*) into ex_table_xt
+
+from user_tables
+
+where table_name = 'TABLE_XT';
+
+ 
+
+if ex_table_xt = 1 then
+
+execute immediate 'drop table table_xt';
+
+end if;
+
+ 
+
+select count(*) into v_col_cnt
+
+from (select column_name
+
+from all_tab_columns
+
+where table_name='TABLE_X');
+
+ 
+
+for i in (select column_name
+
+from all_tab_columns
+
+where table_name='TABLE_X'
+
+order by column_id) loop
+
+ 
+
+v_stmt := v_stmt || ' select ' || i.column_name || ' from table_x';
+
+v_cnt := v_cnt + 1;
+
+exit when v_cnt = v_col_cnt;
+
+v_stmt := v_stmt || ' union all';
+
+ 
+
+end loop;
+
+ 
+
+execute immediate v_stmt;
+
+ 
+
+end create_xt;
+
+ 
+
+procedure create_xx
+
+is
+
+v_str varchar2(1000) :='';
+
+v_cnt  number(10) ;
+
+ex_table_xx number(10);
+
+ 
+
+begin
+
+select count(*) into ex_table_xx
+
+from user_tables
+
+where table_name = 'TABLE_XX';
+
+ 
+
+if ex_table_xx = 1 then
+
+execute immediate 'drop table table_xx';
+
+end if;
+
+ 
+
+execute immediate 'create table table_xx (x number(10, 7))';
+
+execute immediate 'alter  table  table_x  add  empno  number(10)';
+
+execute immediate 'update  table_x  set  empno = rownum';
+
+ 
+
+commit;
+
+ 
+
+select count(*) into v_cnt  from  table_x;
+
+ 
+
+for j in 1 .. v_cnt loop
+
+for i in (select column_name
+
+from cols
+
+where table_name = upper('table_x')) loop
+
+ 
+
+if i.column_name <> 'EMPNO' then
+
+v_str :='insert into table_xx select ' || i.column_name || ' from table_x where empno = ' || j;
+
+execute immediate v_str;
+
+end if;
+
+end loop;
+
+end loop;
+
+ 
+
+execute immediate 'alter table table_x drop column empno';
+
+ 
+
+end create_xx;
+
+ 
+
+procedure analysis
+
+is
+
+matrix_x UTL_NLA_ARRAY_DBL;
+
+matrix_y UTL_NLA_ARRAY_DBL;
+
+matrix_xt UTL_NLA_ARRAY_DBL;
+
+matrix_xtx UTL_NLA_ARRAY_DBL := UTL_NLA_ARRAY_DBL();
+
+matrix_xty UTL_NLA_ARRAY_DBL := UTL_NLA_ARRAY_DBL();
+
+v_matrix_p   utl_nla_array_int := utl_nla_array_int(0,0,0,0);
+
+v_result     integer;
+
+v_xt_row number(10);
+
+v_x_col number(10);
+
+v_xt_col number(10);
+
+       v_colname varchar2(20);
+
+
+
+begin
+
+select count(*) into v_xt_row from all_tab_columns where table_name = 'TABLE_X';
+
+select count(*) into v_x_col from all_tab_columns where table_name = 'TABLE_X';
+
+select count(*) into v_xt_col from table_x;
+
+ 
+
+select * bulk collect into matrix_x from table_Xx;
+
+select * bulk collect into matrix_xt from table_Xt;
+
+select * bulk collect into matrix_y from table_Y;       
+
+ 
+
+UTL_NLA.BLAS_GEMM (    
+
+transa => 'N',
+
+transb => 'n',
+
+m      => v_xt_row,
+
+n      => v_x_col,
+
+k      => v_xt_col,
+
+alpha  => 1,
+
+a      => matrix_xt,
+
+lda    => v_xt_col,
+
+b      => matrix_x,
+
+ldb    => v_x_col,
+
+beta   => 0,
+
+c      => matrix_xtx,
+
+ldc    => v_xt_row,
+
+pack   => 'R');
+
+ 
+
+UTL_NLA.BLAS_GEMV (
+
+trans => 'N',
+
+m     => v_xt_row,
+
+n     => v_xt_col,
+
+alpha => 1,
+
+a     => matrix_xt,
+
+lda   => v_xt_col,
+
+x     => matrix_y,
+
+incx  => 1,
+
+beta  => 0 ,
+
+y     => matrix_xty,
+
+incy  => 1,
+
+pack  => 'R');
+
+ 
+
+UTL_NLA.LAPACK_GESV (
+
+n    => v_xt_row,
+
+nrhs => 1,
+
+a    => matrix_xtx,
+
+lda  => v_xt_row,
+
+ipiv => v_matrix_p,
+
+b    => matrix_xty,
+
+ldb  => 1,
+
+info => v_result,
+
+pack => 'C' );
+
+ 
+
+ for i in 1..matrix_xty.count loop
+
+if i = 1 then
+
+    dbms_output.put_line ('절편' || '=' || to_number (matrix_xty (i)));
+
+else
+
+select column_name into v_colname
+
+from cols where table_name ='TABLE_X' and column_id = i;
+
+dbms_output.put_line (v_colname || ' 의 회귀계수는 ' || '=' || to_number (matrix_xty (i)));
+
+end if;
+
+  end loop; 
+
+ 
+
+end analysis;
+
+ 
+
+end regression;
+
+/

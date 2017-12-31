@@ -1,0 +1,49 @@
+SQL> ed reg.sql
+
+
+
+set feedback off
+
+
+
+accept p_1 prompt '회귀분석 하고 싶은 테이블명을 입력하세요 : '
+
+accept p_2 prompt ' 종속변수명을 입력하세요 : '
+
+accept p_3 prompt '독립변수명을 입력하세요 (예: 컬럼1,컬럼2): '
+
+
+
+exec regression.create_xy('&p_1', '&p_2', '&p_3');
+
+exec regression.create_xt;
+
+exec regression.create_xx;
+
+exec regression.analysis;
+
+
+
+set feedback on 
+
+
+
+SQL> @reg.sql
+
+
+
+회귀분석 하고 싶은 테이블명을 입력하세요 : smartphone
+
+ 종속변수명을 입력하세요 : good
+
+독립변수명을 입력하세요 (예: 컬럼1,컬럼2): look,comf,usef
+
+
+
+절편=3.5061575087395367
+
+LOOK 의 회귀계수는 =.27269461273681789
+
+COMF 의 회귀계수는 =.19718748372259406
+
+USEF 의 회귀계수는 =.14944857339408335

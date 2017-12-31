@@ -1,0 +1,15 @@
+drop table table_x;
+
+drop table table_y;
+
+drop table table_xt;
+
+drop table table_xx;
+
+create table table_x (empno number(10));
+
+create table table_y (empno number(10));
+
+create table table_xt (empno number(10));
+
+create table table_xx (empno number(10));
